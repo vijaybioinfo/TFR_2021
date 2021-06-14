@@ -1,0 +1,371 @@
+---
+title: "TFR project workflow"
+author:
+    - name: "[Ciro Ramirez Suastegui](https://github.com/cramirezs)"
+      affiliation: "La Jolla Institute for Immunology, San Diego, USA"
+      email: "ksuasteguic@gmail.com"
+date: "Last update: `r format(Sys.time(), '%Y, %B %d, at %H:%M')`"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    number_sections: false
+    fig_caption: true
+    theme: cosmo
+    code_folding: hide
+---
+
+## Description
+In this part of the project, Murine data was utilised.
+
+- Date started: 2020, November 18
+- Date projected: 2020, December 20
+- Date finished:
+
+---
+
+**We're using the _single-cell toolkit_ pipelines developed at Vijay's [lab](https://github.com/vijaybioinfo).**
+
+## $\checkmark$ Demultiplexing libraries
+You can either use mkfastq or bcl2fastq. In this case we did it with `bcl2fastq`.
+
++ Please make sure names are appropriate and consistent across all runs.
+
+   > Appropriate: e. g.: <span style="color:red">102_</span>B2_CD4_STIM_<span style="color:red">8D</span>, <span style="color:red">103_</span>B2_CD8_STIM; the first part may not be really necessary (if you allow enough information to make the library unique). and the second name is missing a section (8D).
+
+   > Consistent: e. g.: B1_CD4_STIM, B2_<span style="color:red">STIM_CD4</span>.; the cell type and stimulation status changed in the second batch.
+
++ Prepare IEM sample sheet [carefully choosing the names].
+
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/seqteam/raw) are un run NV037.
+
+## $\checkmark$ Demultiplexing cells
+
+Pre-processing data with Cell Ranger. We have a [wrapper](https://github.com/vijaybioinfo/cellranger_wrappeR) for this if you don't want to prepare a script for each of your samples.
+
+1. Prepare feature reference and aggregation files.
+2. Check you're taking the right reference genome.
+```{.bash echo=FALSE, eval=FALSE}
+sh /home/ciro/scripts/cellranger_wrappeR/run.sh -h
+sh /home/ciro/scripts/cellranger_wrappeR/run.sh -y /home/ciro/simon/scripts/tumor_tfr/SiEs09_cellranger_NV037.yaml -v
+```
+
+Some jobs will be created and you will need to wait a long time.[^1] Then you run the summary.
+```{.bash echo=FALSE, eval=FALSE}
+sh /home/ciro/scripts/cellranger_wrappeR/run.sh -y /home/ciro/simon/scripts/cellranger_config.yaml -s
+```
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/raw/NV037)
+
+## $\checkmark$ Demultiplexing donors/subjects
+You will make use of the [ab_capture](https://github.com/vijaybioinfo/ab_capture) scripts.
+
+1. Have the donor metadata if you want to include it in the single-cell metadata.
+Up yo you if you want it in the object or if you'll make use of it after clustering.
+
+2. Check the hashtag structure is correct (eg. donor\~hashtag_n\~hashtag_id corresponds to "DONOR1-TSC5-C0305").
+This is derived from the feature names (indicated in the column "names" when you run Cell Ranger).
+```{.bash echo=FALSE, eval=FALSE}
+sh /home/ciro/scripts/ab_capture/run.sh -y /home/ciro/simon/scripts/tumor_tfr/SiEs09_ab_capture.yaml -v
+Rscript /home/ciro/scripts/ab_capture/summary.R -c /home/ciro/large/simon/results/ab_demux/SiEs09_100th \
+  --tag_str time_days~donor~hashtag_n~hashtag_id # d11-I-TSC1-C0301
+```
+Jobs will be created and you'll need to wait a few minutes.
+
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/ab_demux/all_samples_100th)
+
+## $\checkmark$ Quality control
+We're using [this script](https://github.com/vijaybioinfo/quality_control) tailored to explore QC metrics.[^2]
+
+1. Be mindful of the variables you have in the metadata.
+
+It takes about 5 minutes with 90K cells with 20gb and 1 node/1 processor.
+```{.bash echo=FALSE, eval=FALSE}
+Rscript /home/ciro/scripts/quality_control/single_cell.R -y /home/ciro/simon/scripts/tumor_tfr/SiEs09_qc.yaml --log TRUE
+```
+
+### - QC thresholds {.tabset}
+
+#### Violins
+
+![QC metrics](/home/ciro/large/simon/results/qc/SiEs09/1_qc_all_data.pdf)
+
+#### Metrics' distributions table
+
+```{r QC table, echo=FALSE, eval=TRUE}
+qc_tab_f = "/home/ciro/large/simon/results/qc/SiEs09/filters_summary.csv"
+if(file.exists(qc_tab_f)){
+  qc_tab = read.csv(qc_tab_f, row.names = 1)
+  qc_order = c("qc_filters.low", "qc_filters.high", "Min.", "0.1%", "10%", "1st Qu.", "Median", "Mean", "3rd Qu.", "90%", "99.2%", "Max.")
+  qc_order <- qc_order[qc_order %in% rownames(qc_tab)]
+  knitr::kable(qc_tab[qc_order, ], caption = "QC metrics", align = "l", digits = 2)
+}
+```
+
+### {-}
+
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/qc/SiEs09)
+
+## $\checkmark$ Clustering analysis
+You need to be extra careful with this analysis because it branches very easily.
+The main variables you want to tweak are:
+
+1. Percentage of variability explained by the highly variable features.
+2. Number of principal components.
+3. Resolution.
+```{.bash echo=FALSE, eval=FALSE}
+sh /home/ciro/scripts/clustering/run.sh -y /home/ciro/simon/scripts/tumor_tfr/SiEs09_clustering.yaml
+sh /home/ciro/scripts/clustering/run.sh -y /home/ciro/simon/scripts/tumor_tfr/SiEs09_clustering_filtered.yaml
+```
+
+Two results are explored here.
+
+### - 1. Loose
+
+Using loose quality thresholds and keeping the doublets. The thresholds are selected based on the [global QC metrics distribution](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/qc/SiEs09/1_qc_all_data.pdf). Note that the lines in this link are corresponding to the second option (next).
+
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/clustering/SiEs09_tfr_mouse_test2/seurat_mean0.01_pct20_pc15_res0.4/) / Variable [tweaking](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/clustering/SiEs09_tfr_mouse_test2/_results_outline.pdf).
+
+### - 2. Strict
+
+These were carefully selected based on the [Singlet's QC metrics](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/qc/SiEs09/1_qc_all_data_confounder.ht_id.global.pdf). We are aiming to keep only the singlets and throw the negative ones if they're too few cells.
+
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/clustering/SiEs09_tfr_xdoublt_xclust4) / Variable [tweaking](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/clustering/SiEs09_tfr_xdoublt_xclust4/_results_outline.pdf).
+
+## $\checkmark$ Biology/data lock
+
+After we explore the biology revealed by the clustering analysis, we select a cluster resolution that gives us the most interesting prospect for a story.
+
+|Variance percentage |PC |Resolution |
+|:-------------------|:--|:----------|
+|15                  |20 |0.4        |
+
+### - Highlighted Plots {.tabset}
+
+#### Clusters
+
+![Colouring by cluster](/home/ciro/large/simon/results/clustering/SiEs09_tfr_xdoublt_xclust4/seurat_mean0.01_pct15_pc20_res0.4/dimentional_reduction_umap_nei10_dist0.3.pdf)
+
+<!-- ```{r, echo=FALSE, eval=TRUE, fig.cap = "Colouring by cluster", out.width = '75%'}
+knitr::include_graphics("/home/ciro/large/simon/results/clustering/SiEs09_tfr_xdoublt_xclust4/seurat_mean0.01_pct15_pc20_res0.4/dimentional_reduction_umap_nei10_dist0.3.pdf", dpi = NA)
+``` -->
+
+#### Subjects
+
+![Colouring by Mice-days](/home/ciro/large/simon/results/clustering/SiEs09_tfr_xdoublt_xclust4/seurat_mean0.01_pct15_pc20_res0.4/proportions_ht_id_umap_nei10_dist0.3.pdf)
+
+### {-}
+
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/clustering/SiEs09_tfr_xdoublt_xclust4/seurat_mean0.01_pct15_pc20_res0.4)
+
+## $\checkmark$ TCR analysis
+This analysis was performed using [Vicente](vfajardo@lji.org)'s pipeline.
+
+```{r Completing object, echo=FALSE, eval=FALSE}
+setwd("/home/ciro/large/simon/results/clustering/SiEs09_tfr_xdoublt_xclust4")
+mycells = readRDS(".object_stem_seurat_mean0.01_pct15.rds")
+reductions = readRDS(".object_reductions_seurat_mean0.01_pct15_pc20.rds")
+mycells@reductions = reductions
+mycells@reductions$umap = mycells@reductions$umap_pc20_nei10_dist0.3
+mycells@reductions <- mycells@reductions[c("pca", "umap")]
+all(rownames(mycells@meta.data) == rownames(mycells@reductions$umap@cell.embeddings))
+mycells@reductions$umap@cell.embeddings[, 1] = mycells@meta.data$dim_umap_1_nei10_dist0.3
+mycells@reductions$umap@cell.embeddings[, 2] = mycells@meta.data$dim_umap_2_nei10_dist0.3
+mycells@meta.data$cluster_days <- paste0("C", mycells@meta.data$RNA_snn_res.0.4, "_", mycells@meta.data$orig.time_days)
+table(mycells@meta.data$cluster_days)
+saveRDS(mycells, file = ".object_stem_seurat_mean0.01_pct15.rds")
+
+library(reticulate)
+anndata <- import("anndata", convert = FALSE)
+Seurat::DefaultAssay(mycells)
+# edata = Matrix::t(Seurat::GetAssayData(object = mycells))
+edata = t(as.matrix(Seurat::GetAssayData(object = mycells)))
+adata <- anndata$AnnData(
+    X = edata,
+    var = mycells@assays$RNA@meta.features,
+    obs = data.frame(mycells@meta.data[rownames(edata), ]),
+    obsm  = list(
+      "X_umap" = Seurat::Embeddings(mycells, reduction = "umap"),
+      "X_pca" = Seurat::Embeddings(mycells, reduction = "pca")
+    )
+)
+file.remove('.object_stem_seurat_mean0.01_pct15.h5ad')
+anndata$AnnData$write(adata, '.object_stem_seurat_mean0.01_pct15.h5ad')
+```
+
+This part was run in an interactive job.
+```{.bash echo=FALSE, eval=FALSE}
+mkdir --parents /home/ciro/large/simon/results/tcr/SiEs09_mod
+# Rscript /home/vfajardo/scripts/TCR_data_analysis/10X_preliminary_analyses/preliminary_TCR_data_analysis.1.5.4.R \
+Rscript /home/ciro/scripts/crtcr/analysis.R \
+  --ReportsPath=/home/ciro/large/simon/results/tcr/SiEs09_mod \
+  --TCRContigs=/home/ciro/large/simon/raw/NV037/vdj/SiEs09_Mo_tumor_FOXP3PCD4P_TCR/outs/filtered_contig_annotations.csv \
+  --TCRClonotypes=/home/ciro/large/simon/raw/NV037/vdj/SiEs09_Mo_tumor_FOXP3PCD4P_TCR/outs/clonotypes.csv \
+  --SeuratObj=/home/ciro/large/simon/results/clustering/SiEs09_tfr_xdoublt_xclust4/.object_stem_seurat_mean0.01_pct15.rds \
+  --Tags "c('orig.time_days', 'orig.donor', 'orig.ht_id', 'RNA_snn_res.0.4', 'cluster_days')"
+```
+
+### - Highlighted Plots {.tabset}
+
+#### Clonotype sharing per cluster
+
+![Venn diagram](/home/ciro/large/simon/results/tcr/SiEs09/tag_specific_analysis/RNA_snn_res.0.4/clonotypes_sharing/TagByClonotypesSharingVennDiagram.png)
+
+#### Clusters
+
+![Clonotype expansion filled barplot](/home/ciro/large/simon/results/tcr/SiEs09/tag_specific_analysis/RNA_snn_res.0.4/clons_expansion/TagByClonotypeExpansionFilledBarplot.pdf)
+![Cells expansion filled barplot](/home/ciro/large/simon/results/tcr/SiEs09/tag_specific_analysis/RNA_snn_res.0.4/cells_expansion/TagByClonotypeExpansionFilledBarplot.pdf)
+
+#### Days
+
+![Clonotype expansion filled barplot](/home/ciro/large/simon/results/tcr/SiEs09/tag_specific_analysis/orig.time_days/clons_expansion/TagByClonotypeExpansionFilledBarplot.pdf)
+![Cell expansion filled barplot](/home/ciro/large/simon/results/tcr/SiEs09/tag_specific_analysis/orig.time_days/cells_expansion/TagByClonotypeExpansionFilledBarplot.pdf)
+
+#### Days per cluster
+
+![Clonotype expansion filled barplot](/home/ciro/large/simon/results/tcr/SiEs09/tag_specific_analysis/cluster_days/clons_expansion/TagByClonotypeExpansionFilledBarplot.pdf)
+![Cell expansion filled barplot](/home/ciro/large/simon/results/tcr/SiEs09/tag_specific_analysis/cluster_days/cells_expansion/TagByClonotypeExpansionFilledBarplot.pdf)
+
+### {-}
+
+
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/tcr/SiEs09)
+
+## $\checkmark$ Gene Set Analyses
+
+```{.bash echo=FALSE, eval=FALSE}
+Rscript /home/ciro/simon/scripts/tumor_tfr/SiEs09_signatures.R
+```
+
+<div id="table_sign.txt" style="display:none">
+```{r Signature table, echo=FALSE, eval=TRUE}
+ldata_file = "/home/ciro/large/simon/results/signatures/gene_lists.rds"
+if(all(file.exists(ldata_file))){
+  load("/home/ciro/scripts/handy_functions/data/signatures_vijaylab.rdata")
+  signatures_subset = readRDS(ldata_file)
+  ldata_summ <- reshape2::melt(sapply(signatures_subset, length))
+  ldata_summ_init <- reshape2::melt(sapply(signatures_vijaylab, length))
+  ldata_summ <- data.frame(
+    List = rownames(ldata_summ),
+    Total = ldata_summ_init[rownames(ldata_summ), 1],
+    Used = ldata_summ[, 1]
+  ); ldata_summ$Percentage <- paste0(round(ldata_summ[, 3] / ldata_summ[, 2] * 100, 1), "%")
+  knitr::kable(ldata_summ, caption = "Libraries summary", align = "l")
+}
+```
+
+</div>
+
+<button title="Click to show answer" type="button" onclick="if(document.getElementById('table_sign.txt') .style.display=='none') {document.getElementById('table_sign.txt') .style.display=''}else{document.getElementById('table_sign.txt') .style.display='none'}">Signature lists summary</button>
+
+
+### - GSEA
+
+![Enrichemnt heatmap](/home/ciro/large/simon/results/signatures/SiEs09_gsea/a1_gsea_summary_48sets_NES0_padj0.05_2020-12-22_NES.pdf)
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/signatures/SiEs09_gsea)
+
+### - Module Scoring
+
+Briefly, the score is defined for each cell by subtracting the mean expression of an aggregate of control gene lists from the mean of the signature gene list. Control gene lists were randomly selected (same size as the signature list) from bins delimited based on the level of expression of the signature list.
+
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/signatures/SiEs09_module_score)
+
+## $\Box$ DGE analysis
+```{.bash echo=FALSE, eval=FALSE}
+sh /home/ciro/simon/scripts/tumor_tfr/SiEs09_dgea.sh
+```
+This time we have 10x data, so MAST was used.
+
+```{r dgea_comparison, echo=FALSE, eval=TRUE}
+comparisons = "/home/ciro/simon/scripts/tumor_tfr/SiEs09_dgea_comparisons.csv"
+if(file.exists(comparisons)){
+  mytab = read.csv(comparisons)
+  knitr::kable(mytab, caption = "Comparisons", align = "l", digits = 2)
+}
+```
+
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/dgea/SiEs09_tfr_xdoublt_xclust4)
+
+## $\Box$ Trajectory analysis
+
+We're using Monocle 3 for this analysis. This also helps us preserve the UMAP from the Seurat analysis.
+
+- First, Using same HVG+UMAP:
+
+```{.bash echo=FALSE, eval=FALSE}
+Rscript /home/ciro/simon/scripts/tumor_tfr/SiEs09_trajectory.R &> /home/ciro/simon/scripts/tumor_tfr/SiEs09_trajectory.out.txt
+```
+
+![Clusters](/home/ciro/large/simon/results/trajectory/SiEs09_tfr_xdoublt_xclust4_20PCs/5_umap_RNA_snn_res.0.4.pdf)
+
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/trajectory/SiEs09_tfr_xdoublt_xclust4_20PCs)
+
+- Standard (_std) Monocle3 different PCs
+
+```{r monocle3, echo=TRUE, eval=FALSE}
+library(monocle3)
+npcs = 20
+out_dir = paste0("/home/ciro/large/simon/results/trajectory/SiEs09_tfr_xdoublt_xclust4_", npcs, "PCs_std")
+if(!dir.exists(out_dir)) dir.create(out_dir); setwd(out_dir)
+mycells = readRDS("/home/ciro/large/simon/results/clustering/SiEs09_tfr_xdoublt_xclust4/.object_stem_seurat_mean0.01_pct15.rds")
+gene_annotation <- mycells@assays$RNA@meta.features
+gene_annotation <- cbind(gene_short_name = rownames(gene_annotation), gene_annotation)
+cds <- new_cell_data_set(
+  expression_data = mycells@assays$RNA@counts,
+  cell_metadata = mycells@meta.data,
+  gene_metadata = gene_annotation
+)
+cds <- preprocess_cds(cds, num_dim = npcs)
+cds <- align_cds(cds, residual_model_formula_str = "~nCount_RNA+percent.mt")
+cds <- reduce_dimension(cds)
+pdf("clusters.pdf")
+plot_cells(cds, label_groups_by_cluster=FALSE,  color_cells_by = "RNA_snn_res.0.4", cell_size=2)
+dev.off()
+cds <- cluster_cells(cds)
+cds <- learn_graph(cds)
+p <- plot_cells(cds, color_cells_by = "partition")
+pdf("partition.pdf"); print(p); dev.off()
+pdf("trajectory.pdf");
+plot_cells(cds,
+           color_cells_by = "RNA_snn_res.0.4",
+           label_groups_by_cluster=FALSE,
+           label_leaves=FALSE,
+           label_branch_points=FALSE)
+dev.off()
+```
+
+![Clusters - PC20](/home/ciro/large/simon/results/trajectory/SiEs09_tfr_xdoublt_xclust4_20PCs_std/trajectory.pdf)
+
+[Results](https://informaticsdata.liai.org/NGS_analyses/ad_hoc/Groups/vd-vijay/cramirez/simon/results/trajectory)
+
+Conclusion: It's hard to pull them apart but I'd say that cluster 2 is an extreme (starting/ending) a branch.
+
+## Task/Figures Tracker
+
+### - Custom plots
+```{.bash echo=FALSE, eval=FALSE}
+Rscript /home/ciro/simon/scripts/tumor_tfr/SiEs09_figures.R
+```
+
+We can continue discussions and documenting tasks or [ready to publish] figure in our Google Drive <a href="https://docs.google.com/spreadsheets/d/1UGy090viDTWYt6crmo8r6071zG2p0OJDEKkbjjHPB5w/edit?usp=sharing" target="_blank">tracker sheet</a>
+
+```{r Tracker, echo=FALSE, eval=FALSE}
+gid = "https://docs.google.com/spreadsheets/d/1UDpjCXw0r86OHi-FkPse32AmtiF1Eyx5Yb5Ad-TqabU/edit?usp=sharing"
+temp <- tempfile(fileext = ".zip")
+download.file(paste0("https://docs.google.com/uc?export=download&id=", gid), temp)
+out <- unzip(temp, exdir = tempdir())
+bank <- read.csv(out[14], sep = ";")
+str(bank)
+```
+
+---
+
+[^1]: Critical step; it takes a lot of time and memory. We should probably start checking kallisto-bustools.
+
+[^2]: You can run this step in an interactive job.
+
+<!--
+cd /home/ciro/simon/scripts/tumor_tfr
+R -e "rmarkdown::render(input = 'SiEs09_workflow.rmd', output_dir = '/home/ciro/large/simon/results/')"
+-->

@@ -1,0 +1,24 @@
+---
+project_id: SiEs09
+output_dir: "/mnt/BioAdHoc/Groups/vd-vijay/cramirez/simon/results/ab_demux"
+# not necessary if you already have a sample_sheet, but this will create it with all feature barcode libraries
+count_info:
+  count_dir: /mnt/BioAdHoc/Groups/vd-vijay/cramirez/simon/raw/NV037/count
+  gex_data: filtered
+  fbarcode_data: raw
+demux:
+  max_count_min: 100
+  fold_change: 3
+  subset_tags: random1234
+# empty if you want to aggregate everything or provide a folder with cellranger aggregations
+# Feature name structure. Always include 'donor' as one of them.
+tag_str: time_days~donor~hashtag_n~hashtag_id # d11-I-TSC1-C0301
+tag_delim: "-" # string use to separate the information in your hashtag names
+job:
+  walltime: 02:00:00
+  mem: 10gb
+  ppn: 1
+  nodes: 1
+  submit: yes # yes, no, or force
+exec_r: Rscript
+...

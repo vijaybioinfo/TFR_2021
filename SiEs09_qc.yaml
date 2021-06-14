@@ -1,0 +1,18 @@
+---
+project_name: SiEs09
+# path to the Cell Ranger ouput; it can even be a CSV file like the one in a Cell Ranger aggregation
+input_expression: "/mnt/BioAdHoc/Groups/vd-vijay/cramirez/simon/raw/NV037/count/SiEs09_Mo_tumor_FOXP3PCD4P_Gex"
+# A table of the metadata per library, or the whole metadata ready
+# it can be multiple file
+metadata: "/home/ciro/large/simon/results/ab_demux/SiEs09_100th/all.rdata"
+output_dir: "/home/ciro/large/simon/results/qc/"
+# A file will sufice: columns must be metrics names in the metadata,
+# first and second rows the lower and upper thresholds, the third whether to use
+# that metric or not
+filtering:
+  nFeature_RNA: [500, 4000, 1]
+  nCount_RNA: [-Inf, 11000, 1]
+  percent.mt: [-Inf, 7.5, 1]
+  subset: {column1: [value1, value2], column3: group2}
+  nSamples_expressed: 0.001 # % of cells in which that gene is present
+...

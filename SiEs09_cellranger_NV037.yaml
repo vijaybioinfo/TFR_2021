@@ -1,0 +1,22 @@
+---
+project: "SiEs09"
+run: "/mnt/NovaSeq/201030_A00475_0261_BHCTKWDSXY_NV037"
+fastqs_dir: "/mnt/BioAdHoc/Groups/vd-vijay/cramirez/seqteam/raw/NV037"
+output_dir: "/mnt/BioAdHoc/Groups/vd-vijay/cramirez/simon/raw/NV037"
+samples: "SiEs09"
+transcriptome:
+  count: "/mnt/BioAdHoc/Groups/vd-vijay/references/refdata-cellranger-mm10-3.0.0"
+  vdj: /mnt/BioAdHoc/Groups/vd-vijay/references/refdata-cellranger-vdj-GRCm38-alts-ensembl-3.1.0
+feature_ref:
+  main: "/home/ciro/simon/info/SiEs09_fbarcodes_NV037.csv"
+job:
+  template: "/home/ciro/scripts/cellranger_wrappeR/routine_template.sh"
+  walltime: {count: 50:00:00, vdj: 40:00:00, fbarcode: 24:00:00, aggr: 24:00:00}
+  mem: {count: 70gb, vdj: 40gb, fbarcode: 32gb, aggr: 30gb}
+  ppn: {count: 10, vdj: 4, fbarcode: 4, aggr: 6}
+  nodes: 1
+  depend: none
+  submit: yes
+cellranger: "/home/ciro/bin/cellranger-3.1.0/cellranger"
+pipeline: "/home/ciro/scripts/cellranger_wrappeR"
+...

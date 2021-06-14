@@ -1,0 +1,35 @@
+---
+project_name: SiEs09_tfr_xdoublt_xclust4_redo
+# path to the Cell Ranger ouput; it can even be a CSV file like the one in a Cell Ranger aggregation
+input_expression: "/mnt/BioAdHoc/Groups/vd-vijay/cramirez/simon/raw/NV037/count/SiEs09_Mo_tumor_FOXP3PCD4P_Gex"
+# A table of the metadata per library, or the whole metadata ready.
+# It can be multiple files: [metadata_lib.csv, demultiplexed_hashtags.rdata]
+metadata: "/home/ciro/large/simon/results/clustering/SiEs09_tfr_mouse_test2/.object_meta.data_seurat_mean0.01_pct20_pc15.rds"
+# if you don't add "/" at the end, it will append 'project_name'
+output_dir: "/home/ciro/large/simon/results/clustering/"
+filtering:
+  subset: {expr: "nCount_RNA <= 11000 & nFeature_RNA >= 500 & nFeature_RNA <= 4000 & percent.mt <= 7.5 & orig.ht_id.global != 'Doublet' & RNA_snn_res.0.4 != 4"}
+  nSamples_expressed: 0.001 # % of cells in which that gene is present
+regress_var: [nCount_RNA, percent.mt]
+norm: LogNormalize
+variable_features:
+  file: ./data/prot_coding_genes.csv
+  method: vst
+  nfeatures: 2000
+  percent: [15,20]  # iterated
+  mean.cutoff: [0.01, 8]
+  dispersion.cutoff: [1, Inf]
+resolution: [0.2, 0.4, 0.6] # iterated during markers
+dim_reduction:
+  base: {type: pca, n_comp: 40, chosen_comp: [15, 20, 25]} # iterated: chosen
+  tsne: {perplexity: [10, 'auto'], reduction.use: "pca"}
+  umap: {n.neighbors: [10, 30], min.dist: 0.3}
+markers:
+  select: snn_res. # pattern in the metadata's columns
+  test: MAST
+  avg_logFC: 0.25
+  p_val_adj: 0.05
+tool: seurat
+pipeline: /home/ciro/scripts/clustering
+environment: clustering
+...
