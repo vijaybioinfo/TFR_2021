@@ -37,4 +37,4 @@ OUTDIR=${COMDIR}/results/monocle/treg_tfr2
 CATGFILT=orig.cell_set~cTFR~cTREGoTFR~TREG # filtering for these cells
 PCS_COMP=14
 
-. /mnt/BioHome/ciro/scripts/monocle/jobConstMon.sh
+. jobConstMon.sh

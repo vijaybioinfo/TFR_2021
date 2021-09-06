@@ -21,7 +21,7 @@ Integrated analysis of the 9 datasets following the instructions given in the
 online [tutorial](https://satijalab.org/seurat/v3.0/pancreas_integration_label_transfer.html).
 
 ### jobConstMon_setting_treg_sharing.sh
-Wrapper for /mnt/BioHome/ciro/scripts/monocle/monocle3_v1.R that performs Monocle 3 analysis. This was done with the genes specified by the parameter GENESETF.
+Wrapper for monocle3_v1.R that performs Monocle 3 analysis. This was done with the genes specified by the parameter GENESETF.
 
 ### Signature vs monocle's 1st component
 guo_monocleVSsignature_plotting.R
